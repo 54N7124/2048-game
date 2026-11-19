@@ -116,6 +116,7 @@
   }
   .keys button { padding: 8px 0; font-size: 18px; line-height: 1; }
   .keys button span { display: block; font-size: 10px; opacity: .7; margin-top: 2px; }
+  .keys button:disabled { opacity: .3; cursor: not-allowed; filter: none; }
   .help { margin-top: 16px; font-size: 14px; line-height: 1.6; }
 
   @media (max-width: 420px) {
@@ -161,16 +162,16 @@
   <div class="keys" id="keys">
     <button data-dir="ul">↖<span>Q</span></button>
     <button data-dir="up">↑<span>W</span></button>
-    <button data-dir="ur">↗<span>E</span></button>
+    <button data-dir="ur" disabled title="不能往右">↗<span>E</span></button>
     <button data-dir="dl">↙<span>A</span></button>
     <button data-dir="down">↓<span>S</span></button>
-    <button data-dir="dr">↘<span>D</span></button>
+    <button data-dir="dr" disabled title="不能往右">↘<span>D</span></button>
   </div>
 
   <div class="help">
     <strong>玩法：</strong>六角形棋盤有 <strong>三條軸、六個方向</strong>。
-    用 <strong>Q W E / A S D</strong>（或上方按鈕）移動方塊：W/S 上下、Q/D 左上↔右下、E/A 右上↔左下。
-    手機或滑鼠可直接往六個方向滑動。相同數字碰在一起會合併！按 <strong>Z</strong> 可以復原一步。
+    但<strong>只能往左、往上、往下</strong>：用 <strong>Q W / A S</strong>（或上方按鈕）移動方塊：W/S 上下、Q 左上、A 左下，往右（E / D）不能動。
+    手機或滑鼠可直接往這四個方向滑動。相同數字碰在一起會合併！按 <strong>Z</strong> 可以復原一步。
   </div>
 </div>
 
@@ -201,6 +202,8 @@
   };
   // 每個方向在螢幕上的角度（度，y 軸朝下），用於滑動判斷
   const ANGLES = { up: -90, ur: -30, dr: 30, down: 90, dl: 150, ul: -150 };
+  // 只允許往左（左上、左下）、往上、往下；往右（右上、右下）停用
+  const ALLOWED = ['up', 'down', 'ul', 'dl'];
 
   const $ = id => document.getElementById(id);
   const boardEl = $('board'), tilesEl = $('tiles'), gridEl = $('grid'), overlay = $('overlay');
@@ -304,6 +307,7 @@
   }
 
   function move(dir) {
+    if (!ALLOWED.includes(dir)) return;
     if (over || (won && !keepPlaying)) return;
     const prev = snapshot();
     let moved = false, gained = 0;
@@ -358,16 +362,15 @@
     save();
   }
 
+  // 只要任一允許方向能讓方塊移動或合併，就還能繼續
   function canMove() {
-    return CELLS.some(({ q, r }, i) => {
-      const t = grid[i];
-      if (!t) return true;
-      // 每條軸只需檢查一個方向的鄰居
-      return [DIRS.dr, DIRS.down, DIRS.ur].some(([dq, dr]) => {
-        const j = at(q + dq, r + dr);
-        return j !== undefined && grid[j] && grid[j].value === t.value;
-      });
-    });
+    return ALLOWED.some(dir => lines(dir).some(line => {
+      for (let k = 1; k < line.length; k++) {
+        const a = grid[line[k - 1]], b = grid[line[k]];
+        if (b && (!a || a.value === b.value)) return true;
+      }
+      return false;
+    }));
   }
 
   function undo() {
@@ -494,9 +497,9 @@
 
   // ---- 輸入 ----
   const KEYS = {
-    q: 'ul', w: 'up', e: 'ur', a: 'dl', s: 'down', d: 'dr',
+    q: 'ul', w: 'up', a: 'dl', s: 'down',
     ArrowUp: 'up', ArrowDown: 'down',
-    Home: 'ul', PageUp: 'ur', End: 'dl', PageDown: 'dr', // 數字鍵盤 7 9 1 3（NumLock 關閉時）
+    Home: 'ul', End: 'dl', // 數字鍵盤 7 1（NumLock 關閉時）
   };
   document.addEventListener('keydown', e => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
